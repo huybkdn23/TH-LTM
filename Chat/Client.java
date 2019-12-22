@@ -31,7 +31,7 @@ public class Client extends KeyAdapter implements ActionListener {
 	public final static int PORT = 9000;
 	private String username = null;
 	private List<String> users;
-	
+	 
 	public JFrame frame;
 	public JPanel conversationPanel, listPanel, container, wrapperInput;
 	public JTextArea messages, friends;
