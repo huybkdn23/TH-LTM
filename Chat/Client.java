@@ -6,12 +6,18 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -20,9 +26,11 @@ import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
-public class Client implements ActionListener {
+public class Client extends KeyAdapter implements ActionListener {
 	public final static String HOST_NAME = "localhost";
 	public final static int PORT = 9000;
+	private String username = null;
+	private List<String> users;
 	
 	public JFrame frame;
 	public JPanel conversationPanel, listPanel, container, wrapperInput;
@@ -31,24 +39,32 @@ public class Client implements ActionListener {
 	public String name;
 	public JButton send;
 	public DataOutputStream os;
+	public DataInputStream is;
 	private JLabel chatLabel, headerLabel;
 	
 	public Client(String username, String ip, int PORT) {
 		createUI();
+		message.addKeyListener(this);
 		try {
 			System.out.println(ip + " " + PORT);
 			Socket socket = new Socket(HOST_NAME, PORT);
-			BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-			DataInputStream is = new DataInputStream(socket.getInputStream());
+			is = new DataInputStream(socket.getInputStream());
 			os = new DataOutputStream(socket.getOutputStream());
 			os.writeUTF(username);
-
 			Thread readMessage = new Thread(new Runnable() {
 				@Override
 				public void run() {
 					while (true) {
 						try {
 							String msg = is.readUTF();
+							if (msg.contains("vừa tham gia vào phòng")) updateListFriend();
+							else if (msg.contains("DISCONNECTED")) {
+								updateListFriend();
+								if (msg.split(":")[1].equals(username)) {
+									socket.close();
+									System.exit(0);
+								}
+							}
 							messages.append(msg + "\n");
 						} catch (Exception e) {
 							break;
@@ -62,6 +78,18 @@ public class Client implements ActionListener {
 			e.printStackTrace();
 		}
 	}
+	
+	private void updateListFriend () throws IOException {
+		users = new ArrayList<String>(Arrays.asList(is.readUTF().split("\n")));
+		if (this.username == null) this.username = users.get(users.size() - 1);
+		String results = "";
+		for (String name : users) {
+			if (name.equals(this.username)) results += "(Tôi) " + this.username + "\n";
+			else results += name + "\n";
+		}
+		friends.setText(results);
+	}
+	
 	private void createUI() {
 		this.frame = new JFrame("Chat Room!");
 		this.frame.setSize(1400, 750);
@@ -109,44 +137,6 @@ public class Client implements ActionListener {
 
 		this.frame.setVisible(true);
 	}
-//	public static void main(String[] args) throws IOException {
-//		BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-//		Socket socket = new Socket(HOST_NAME, PORT);
-//		DataInputStream is = new DataInputStream(socket.getInputStream());
-//		DataOutputStream os = new DataOutputStream(socket.getOutputStream());
-//		System.out.println("Nhập tên đi bro: ");
-//		os.writeUTF(reader.readLine());
-//		Thread sendMessage = new Thread(new Runnable() {
-//			@Override
-//			public void run() {
-//				while (true) {
-//					try {
-//						String msg = reader.readLine();
-//						os.writeUTF(msg);
-//					} catch (Exception e) {
-//						e.printStackTrace();
-//					}
-//				}
-//			}
-//		});
-//		
-//		Thread readMessage = new Thread(new Runnable() {
-//			@Override
-//			public void run() {
-//				while (true) {
-//					try {
-//						String msg = is.readUTF();
-//						System.out.println(msg);
-//					} catch (Exception e) {
-//						e.printStackTrace();
-//					}
-//				}
-//			}
-//		});
-//		
-//		sendMessage.start();
-//		readMessage.start();
-//	}
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		if (e.getSource() == send) {
@@ -157,6 +147,17 @@ public class Client implements ActionListener {
 				e1.printStackTrace();
 			}
 		}
-		
 	}
+	@Override
+    public void keyPressed(KeyEvent event) {
+		char ch = event.getKeyChar();
+		if (ch == '\n' ) {
+			try {
+				os.writeUTF(message.getText());
+				message.setText("");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+    }
 }
